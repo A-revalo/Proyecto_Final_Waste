@@ -18,12 +18,12 @@ body {
     border-radius: 20px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    width: 400px;
+    width: 450px;
     max-width: 90vw;
 }
 
 .form-container {
-    padding: 40px;
+    padding: 50px;
 }
 
 .form-header {
@@ -55,22 +55,40 @@ body {
 
 .form-group input,
 .form-group select {
-    width: 100%;
-    padding: 12px;
-    border-radius: 12px;
-    border: 1px solid #ccc;
-    background: #f9f9f9;
-    font-size: 0.95rem;
-    transition: 0.3s;
-    color: #000; /* 👈 Texto en negro */
+  height: 60px;
+  min-height: 60px;
+  padding: 16px 18px;
+  font-size: 16px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 3px solid #000;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #000;
+  box-shadow: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
+/* Asegurar altura consistente para selects y espacio para la flecha */
+.form-group select {
+  padding-right: 44px;
+  line-height: 1.2;
+}
+
+/* estado focus más visible */
 .form-group input:focus,
 .form-group select:focus {
-    border-color: #667eea;
-    background: #fff;
-    box-shadow: 0 0 6px rgba(102,126,234,0.5);
-    color: #000; /* 👈 Texto en negro también al escribir */
+  outline: none;
+  border-color: #000;
+  box-shadow: 0 0 0 6px rgba(0,0,0,0.08);
+}
+
+/* mantener placeholders legibles */
+input::placeholder,
+select::placeholder {
+  color: #666;
 }
 
 .btn {
@@ -248,18 +266,313 @@ body {
     cursor: pointer;
 }
 
-/* --- SELECTS --- */
-.form-group select {
-    cursor: pointer;
-    background: #fff;
-    border: 1px solid #ccc;
+/* --- FILAS DEL FORMULARIO --- */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.form-group select:hover {
-    border-color: #5a67d8;
+/* Columnas del formulario */
+.form-column {
+  flex: 1;
+  min-width: 0;
 }
 
-/* --- SEPARACIÓN ENTRE CAMPOS --- */
-.form-group {
-    margin-bottom: 18px;
+.form-column label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+/* Inputs y selects dentro de form-column */
+.form-column input,
+.form-column select {
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  padding: 16px 18px;
+  font-size: 16px;
+  box-sizing: border-box;
+  border: 3px solid #000;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #000;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Ajuste para selects (espacio para flecha) */
+.form-column select {
+  padding-right: 44px;
+  line-height: 1.2;
+}
+
+.form-column input:focus,
+.form-column select:focus {
+  outline: none;
+  border-color: #000;
+  box-shadow: 0 0 0 6px rgba(0,0,0,0.08);
+}
+
+/* ====== CONTENEDOR PARA INPUT DE CONTRASEÑA CON BOTÓN DENTRO ====== */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Input de contraseña con padding derecho para el botón */
+.password-input-wrapper input {
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  padding: 16px 70px 16px 18px;
+  font-size: 16px;
+  box-sizing: border-box;
+  border: 3px solid #000;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #000;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.password-input-wrapper input:focus {
+  outline: none;
+  border-color: #000;
+  box-shadow: 0 0 0 6px rgba(0,0,0,0.08);
+}
+
+/* Botón de mostrar/ocultar contraseña DENTRO del input */
+.toggle-password {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  width: 44px;
+  min-width: 44px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.toggle-password:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.toggle-password:active {
+  transform: translateY(-50%) scale(0.95);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.toggle-password:focus {
+  outline: 2px solid rgba(0,0,0,0.2);
+  outline-offset: 2px;
+}
+
+/* Hint de contraseña */
+.password-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Barra de fortaleza */
+.strength-meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.strength-bar {
+  width: 80px;
+  height: 8px;
+  border-radius: 6px;
+  background-color: currentColor;
+  transition: background-color 0.3s ease;
+}
+
+.strength-text {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* Errores */
+.error {
+  display: block;
+  margin-top: 6px;
+  color: #b00020;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Label requerido */
+label.required::after {
+  content: ' *';
+  color: red;
+}
+
+/* Footer */
+.form-footer {
+  background-color: transparent;
+  color: #333;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.form-footer a {
+  color: #026a5b;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 5px 0;
+}
+
+.form-footer a:hover {
+  color: #003b33;
+  text-decoration: underline;
+}
+
+/* Focus accesible general */
+input:focus, 
+select:focus, 
+button:focus {
+  outline: 3px solid rgba(0,0,0,0.12);
+  outline-offset: 2px;
+}
+
+/* Espaciado entre filas del formulario */
+#registerFormElement .form-row {
+  margin-bottom: 16px;
+}
+
+/* Aumentar separación antes del botón */
+#registerFormElement .form-row:last-of-type {
+  margin-bottom: 28px;
+}
+
+/* Botón de registro */
+#registerFormElement #registerBtn {
+  margin-top: 6px;
+  padding: 14px 20px;
+}
+
+/* Mensajes de estado */
+#registerMessage {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* --- RESPONSIVE DESIGN --- */
+
+/* Tablet y escritorio: mostrar columnas en fila */
+@media (min-width: 768px) {
+  .form-row {
+    flex-direction: row;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .form-row .form-column {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Desktop extra ancho */
+@media (min-width: 1024px) {
+  .container {
+    width: 550px;
+  }
+  
+  .form-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+}
+
+/* --- RECUPERACIÓN DE CONTRASEÑA --- */
+
+.recuperar-contrasena {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: linear-gradient(135deg, #2d9cbe, #aee4c5);
+  border-radius: 8px;
+  color: #fff;
+}
+
+.recuperar-contrasena .title {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.recuperar-contrasena form {
+  display: flex;
+  flex-direction: column;
+}
+
+.recuperar-contrasena .field {
+  margin-bottom: 1rem;
+}
+
+.recuperar-contrasena label {
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.recuperar-contrasena input {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: none;
+}
+
+.recuperar-contrasena button {
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #45a049;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.recuperar-contrasena .error {
+  margin-bottom: 1rem;
+  color: #ffdddd;
+  background-color: #d00000;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.recuperar-contrasena .success {
+  margin-bottom: 1rem;
+  color: #d0ffd0;
+  background-color: #006600;
+  padding: 0.5rem;
+  border-radius: 4px;
 }

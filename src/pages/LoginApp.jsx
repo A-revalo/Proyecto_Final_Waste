@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import "../styles/styles.css";
 
 function LoginApp() {
   const navigate = useNavigate();
@@ -10,11 +11,49 @@ function LoginApp() {
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   const [loginMessage, setLoginMessage] = useState("");
-  const [user, setUser] = useState(null); // ✅ Guardar usuario logueado
+  const [user, setUser] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const toggleShowPassword = () => setShowPassword((prev) => !prev);
+
+  // Configuración de bloqueo temporal
+  const MAX_ATTEMPTS = 5;
+  const LOCK_DURATION_MS = 30 * 1000; // 30 segundos
+
+  const [, setAttempts] = useState(
+    () => Number(localStorage.getItem("loginAttempts")) || 0
+  );
+  const [lockUntil, setLockUntil] = useState(
+    () => Number(localStorage.getItem("loginLockUntil")) || 0
+  );
+  const [remainingLockMs, setRemainingLockMs] = useState(() =>
+    Math.max(
+      0,
+      (Number(localStorage.getItem("loginLockUntil")) || 0) - Date.now()
+    )
+  );
+
+  const isLocked = lockUntil && Date.now() < lockUntil;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, lockUntil - now);
+      setRemainingLockMs(remaining);
+      if (lockUntil && now >= lockUntil) {
+        setAttempts(0);
+        setLockUntil(0);
+        localStorage.removeItem("loginAttempts");
+        localStorage.removeItem("loginLockUntil");
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockUntil]);
 
   const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
   const validatePassword = (password) =>
-    /^(?=.*[A-Z a-z])(?=.*\d)(?=.*[!@#$%^&*()_+{}\$\$:;<>,.?~\\/-]).{8,}$/.test(password);
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:$;<>,.?~/-]).{8,}$/.test(
+      password
+    );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,6 +69,14 @@ function LoginApp() {
       return;
     }
 
+    if (isLocked) {
+      const secondsLeft = Math.ceil(remainingLockMs / 1000);
+      setLoginMessage(
+        `Tu cuenta está bloqueada temporalmente. Intenta de nuevo en ${secondsLeft} segundos.`
+      );
+      return;
+    }
+
     try {
       const res = await axios.post("http://localhost:3001/login", {
         email,
@@ -38,10 +85,10 @@ function LoginApp() {
 
       if (res.data.success) {
         const loggedUser = res.data.user;
-        setUser(loggedUser); // ✅ Guardar usuario logueado
+        setUser(loggedUser);
         setLoginMessage("");
 
-        // 🚀 Redirigir según el rol
+        // Redirigir según el rol
         switch (loggedUser.rol) {
           case "ciudadano":
             navigate("/ciudadano");
@@ -56,6 +103,23 @@ function LoginApp() {
             alert("✅ Login exitoso, pero no se reconoce el rol del usuario.");
         }
       } else {
+        setAttempts((prev) => {
+          const newAttempts = prev + 1;
+          localStorage.setItem("loginAttempts", newAttempts);
+          if (newAttempts >= MAX_ATTEMPTS) {
+            const lockTime = Date.now() + LOCK_DURATION_MS;
+            setLockUntil(lockTime);
+            localStorage.setItem("loginLockUntil", lockTime);
+            setTimeout(() => {
+              setAttempts(0);
+              setLockUntil(0);
+              localStorage.removeItem("loginAttempts");
+              localStorage.removeItem("loginLockUntil");
+            }, LOCK_DURATION_MS);
+            return newAttempts;
+          }
+          return newAttempts;
+        });
         setLoginMessage("❌ Credenciales incorrectas");
       }
     } catch (error) {
@@ -65,94 +129,137 @@ function LoginApp() {
   };
 
   return (
-    <div id="loginForm" className="form-container p-6 max-w-md mx-auto bg-white shadow-lg rounded-lg mt-10">
-      <div className="form-header text-center mb-6">
-        <h1 className="text-2xl font-bold">Bienvenido</h1>
-        <p className="text-gray-600">Inicia sesión en tu cuenta</p>
-      </div>
-
-      {loginMessage && (
-        <div id="loginMessage" className="mb-4 text-red-600 bg-red-50 p-3 rounded">
-          {loginMessage}
+    <div className="container">
+      <div id="loginForm" className="form-container">
+        {/* Header */}
+        <div className="form-header">
+          <h1>Bienvenido</h1>
+          <p>Inicia sesión en tu cuenta</p>
         </div>
-      )}
 
-      {/* ✅ Si el usuario está logueado, mostrar sus datos */}
-      {user ? (
-        <div className="bg-green-50 border border-green-400 rounded p-4 text-green-800">
-          <h2 className="text-xl font-semibold mb-2">Datos del usuario</h2>
-          <p><strong>Nombre:</strong> {user.nombre}</p>
-          <p><strong>Correo:</strong> {user.email}</p>
-          <p><strong>Rol:</strong> {user.rol}</p>
-        </div>
-      ) : (
-        <form id="loginFormElement" onSubmit={handleSubmit}>
-          <div className="form-group mb-4">
-            <label htmlFor="loginEmail" className="block font-medium mb-2">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              id="loginEmail"
-              name="email"
-              required
-              placeholder="ejemplo@correo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-3 py-2 border rounded ${
-                emailError ? "border-red-500" : "border-gray-300"
-              }`}
-            />
-            {emailError && (
-              <small id="emailError" className="text-red-600 mt-1">
-                Ingresa un correo válido
-              </small>
-            )}
+        {/* Mostrar mensaje de error o bloqueo */}
+        {isLocked ? (
+          <div className="lockout-warning">
+            <p style={{ fontWeight: 600, marginBottom: "8px" }}>
+              Cuenta bloqueada temporalmente
+            </p>
+            <p>
+              Intenta de nuevo en:{" "}
+              <span style={{ fontWeight: "bold" }}>
+                {Math.ceil(remainingLockMs / 1000)}
+              </span>{" "}
+              segundos
+            </p>
           </div>
+        ) : (
+          loginMessage && (
+            <div id="loginMessage" className="error-message">
+              {loginMessage}
+            </div>
+          )
+        )}
 
-          <div className="form-group mb-6">
-            <label htmlFor="loginPassword" className="block font-medium mb-2">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              id="loginPassword"
-              name="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`w-full px-3 py-2 border rounded ${
-                passwordError ? "border-red-500" : "border-gray-300"
-              }`}
-            />
-            <small className="text-gray-600 text-sm mt-1 block">
-              La contraseña debe tener mínimo 8 caracteres, incluir mayúscula,
-              número y símbolo.
-            </small>
-            {passwordError && (
-              <small id="passwordError" className="text-red-600 mt-1">
-                La contraseña no cumple con los requisitos
-              </small>
-            )}
+        {/* Si el usuario está logueado, mostrar sus datos */}
+        {user ? (
+          <div className="success-message">
+            <h2 style={{ fontSize: "20px", fontWeight: 600, marginBottom: "10px" }}>
+              Datos del usuario
+            </h2>
+            <p>
+              <strong>Nombre:</strong> {user.nombre}
+            </p>
+            <p>
+              <strong>Correo:</strong> {user.email}
+            </p>
+            <p>
+              <strong>Rol:</strong> {user.rol}
+            </p>
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition duration-200"
-            id="loginBtn"
+        ) : (
+          <form
+            id="loginFormElement"
+            onSubmit={handleSubmit}
+            style={{ opacity: isLocked ? 0.5 : 1, pointerEvents: isLocked ? "none" : "auto" }}
           >
-            Iniciar Sesión
-          </button>
-        </form>
-      )}
+            {/* Email */}
+            <div className="form-group">
+              <label htmlFor="loginEmail" className="required">
+                Correo electrónico
+              </label>
+              <input
+                type="email"
+                id="loginEmail"
+                name="email"
+                required
+                placeholder="ejemplo@correo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  borderColor: emailError ? "#b00020" : "#000"
+                }}
+              />
+              {emailError && (
+                <span className="error">Ingresa un correo válido</span>
+              )}
+            </div>
 
-      {!user && (
-        <div className="form-footer mt-4 text-center">
-          <a href="/register" className="text-blue-600 hover:underline">
-            ¿No tienes cuenta? Regístrate
-          </a>
-        </div>
-      )}
+            {/* Contraseña con botón DENTRO del input */}
+            <div className="form-group">
+              <label htmlFor="loginPassword" className="required">
+                Contraseña
+              </label>
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="loginPassword"
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{
+                    borderColor: passwordError ? "#b00020" : "#000"
+                  }}
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  onClick={toggleShowPassword}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+              {passwordError && (
+                <span className="error">
+                  La contraseña no cumple con los requisitos
+                </span>
+              )}
+            </div>
+
+            {/* Botón de submit */}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              id="loginBtn"
+            >
+              Iniciar Sesión
+            </button>
+          </form>
+        )}
+
+        {/* Footer */}
+        {!user && (
+          <div className="form-footer">
+            <Link to="/register" aria-label="Registrarse">
+              ¿No tienes cuenta? Regístrate
+            </Link>
+            <Link to="/ForgotPassword" aria-label="Restablecer contraseña">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -17,6 +17,7 @@ import CTA from "./pages/CTA.jsx";
 import Register from "./pages/Register.jsx";
 import LoginApp from "./pages/LoginApp.jsx";
 
+
 // Paneles / Rutas privadas
 import Admin from "./pages/Admin.jsx";
 import VentanaAdmin from "./pages/VentanaAdmin.jsx";
@@ -28,6 +29,9 @@ import VentanaSelectMap from "./pages/VentanaSelectMap.jsx";
 import MapPrincipal from "./pages/MapPrincipal.jsx";
 import MapSolicitudes from "./pages/MapSolicitudes.jsx";
 import Crud from "./pages/Crud.jsx";
+import SolicitarRestablecimiento from "./pages/ForgotPassword.jsx";
+import PasswordRecovery from "./pages/PasswordRecovery.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 // Layout principal que gestiona Navbar y Footer según la ruta
 function Layout() {
@@ -35,8 +39,11 @@ function Layout() {
 
   // Rutas donde NO se debe mostrar Navbar/Footer
   const hideNavbarFooterRoutes = [
-    "/login",
+    "/iniciarsesion",
     "/register",
+    "/ForgotPassword",
+    "/recuperar-password",
+    "/restablecer-password",
     "/admin",
     "/ventana-admin",
     "/crud",
@@ -73,7 +80,8 @@ function Layout() {
 
         {/* Auth */}
         <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<LoginApp />} />
+        <Route path="/iniciarsesion" element={<LoginApp />} />
+        
 
         {/* Paneles privados / administrativos */}
         <Route path="/MapaPrincipal" element={<MapPrincipal />} />
@@ -86,6 +94,10 @@ function Layout() {
         <Route path="/ventana-select-map" element={<VentanaSelectMap />} />
         <Route path="/map-solicitudes" element={<MapSolicitudes />} />
         <Route path="/crud" element={<Crud />} />
+        <Route path="/ForgotPassword" element={<SolicitarRestablecimiento />} />
+        <Route path="/recuperar-password" element={<PasswordRecovery />} />
+  <Route path="/restablecer-password" element={<ResetPassword />} />
+  <Route path="/restablecer-password/:token" element={<ResetPassword />} />
       </Routes>
 
       {showLayout && <Footer />}

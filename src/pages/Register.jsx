@@ -1,116 +1,155 @@
-import React, { useState } from "react";
-import "../styles/styles.css"; // tu hoja de estilos
+import React, { useState, useEffect } from "react";
+import DOMPurify from "isomorphic-dompurify";  // Cambiar a isomorphic-dompurify
+import useForm from "../hooks/useForm";
+import "../styles/styles.css";
+import FormInput from "../components/FormInput";
+import FormSelect from "../components/FormSelect";
+import { DOCUMENT_TYPES, LOCALIDADES } from "../constants/constants";
 
 function Register() {
-  const [formData, setFormData] = useState({
+  const initialState = {
     firstName: "",
     lastName: "",
     registerEmail: "",
+    confirmEmail: "",
     documentType: "",
     documentNumber: "",
+    phone: "",
+    address: "",
     populationType: "",
     localidad: "",
     password: "",
     confirmPassword: "",
-  });
+  };
+
+  const { formData, setFormData, errors, setErrors, resetForm } = useForm(initialState);
 
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ level: "", color: "" });
 
-  // Validación de contraseña mejorada
-  const validatePassword = (password) => {
-    const minLength = password.length >= 8;
-    const hasLetter = /[A-Za-z]/.test(password); // Permite mayúscula O minúscula
-    const hasNumber = /\d/.test(password);
-    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
-    return minLength && hasLetter && hasNumber && hasSymbol;
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validatePassword = (password) =>
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password);
+
+  const getPasswordStrength = (password) => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/\d/.test(password)) strength++;
+    if (/[@$!%*?&]/.test(password)) strength++;
+
+    if (strength < 3) return { level: "Débil", color: "red" };
+    if (strength < 5) return { level: "Media", color: "orange" };
+    return { level: "Fuerte", color: "green" };
   };
 
-  // Validación de email
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  // Manejar cambios en inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    
-    // Limpiar mensaje cuando el usuario empiece a escribir
-    if (message) {
-      setMessage("");
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    let fieldError = "";
+    if ((name === "registerEmail" || name === "confirmEmail") && value && !validateEmail(value)) {
+      fieldError = "Email inválido";
     }
+    if (name === "documentNumber" && value && !/^\d+$/.test(value)) {
+      fieldError = "Solo números";
+    }
+    if (name === "phone" && value && !/^\d{10}$/.test(value)) {
+      fieldError = "Teléfono debe tener 10 dígitos";
+    }
+    if (name === "password") {
+      setPasswordStrength(getPasswordStrength(value));
+      if (value && !validatePassword(value)) {
+        fieldError = "Contraseña débil (8+, mayúscula, número y símbolo)";
+      }
+    }
+
+    // coincidencias en tiempo real
+    if (name === "registerEmail" && formData.confirmEmail && value !== formData.confirmEmail) {
+      setErrors((s) => ({ ...s, confirmEmail: "Los correos no coinciden" }));
+    } else if (name === "confirmEmail" && formData.registerEmail && value !== formData.registerEmail) {
+      setErrors((s) => ({ ...s, confirmEmail: "Los correos no coinciden" }));
+    } else {
+      setErrors((s) => ({ ...s, confirmEmail: "" }));
+    }
+
+    if (name === "password" && formData.confirmPassword && value !== formData.confirmPassword) {
+      setErrors((s) => ({ ...s, confirmPassword: "Las contraseñas no coinciden" }));
+    } else if (name === "confirmPassword" && formData.password && value !== formData.password) {
+      setErrors((s) => ({ ...s, confirmPassword: "Las contraseñas no coinciden" }));
+    } else {
+      setErrors((s) => ({ ...s, confirmPassword: "" }));
+    }
+
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
-  // Manejar envío del formulario
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setMessage("");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
 
-    // Validaciones mejoradas
-    if (!validateEmail(formData.registerEmail)) {
-      setMessage("❌ Por favor ingresa un correo electrónico válido");
-      setIsLoading(false);
+    if (formData.registerEmail !== formData.confirmEmail) {
+      setMessage("❌ Los correos electrónicos no coinciden");
       return;
     }
-
-    if (!validatePassword(formData.password)) {
-      setMessage("❌ La contraseña debe tener al menos 8 caracteres, incluir una letra, número y símbolo");
-      setIsLoading(false);
-      return;
-    }
-
     if (formData.password !== formData.confirmPassword) {
       setMessage("❌ Las contraseñas no coinciden");
-      setIsLoading(false);
+      return;
+    }
+    if (!validatePassword(formData.password)) {
+      setMessage("❌ La contraseña no cumple requisitos");
+      return;
+    }
+    if (!validateEmail(formData.registerEmail)) {
+      setMessage("❌ Email inválido");
       return;
     }
 
-    // Validar que el número de documento sea válido
-    if (formData.documentNumber.length < 6) {
-      setMessage("❌ El número de documento debe tener al menos 6 dígitos");
-      setIsLoading(false);
-      return;
-    }
+    const sanitizedData = {
+      firstName: DOMPurify.sanitize(formData.firstName),
+      lastName: DOMPurify.sanitize(formData.lastName),
+      registerEmail: DOMPurify.sanitize(formData.registerEmail),
+      confirmEmail: DOMPurify.sanitize(formData.confirmEmail),
+      documentType: DOMPurify.sanitize(formData.documentType),
+      documentNumber: DOMPurify.sanitize(formData.documentNumber),
+      phone: DOMPurify.sanitize(formData.phone),
+      address: DOMPurify.sanitize(formData.address),
+      populationType: DOMPurify.sanitize(formData.populationType),
+      localidad: DOMPurify.sanitize(formData.localidad),
+      password: DOMPurify.sanitize(formData.password),
+    };
 
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+    setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:3001/register", {
+      const res = await fetch(`${API_URL}/register`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          // Limpiar datos antes de enviar
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          registerEmail: formData.registerEmail.trim().toLowerCase(),
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sanitizedData),
       });
 
       const data = await res.json();
-      
-      if (res.ok && data.success) {
+      if (data.success) {
         setMessage("✅ Registro exitoso");
-        // Limpiar formulario
-        setFormData({
-          firstName: "",
-          lastName: "",
-          registerEmail: "",
-          documentType: "",
-          documentNumber: "",
-          populationType: "",
-          localidad: "",
-          password: "",
-          confirmPassword: "",
-        });
+        resetForm();
+        setPasswordStrength({ level: "", color: "" });
       } else {
-        setMessage(`⚠️ Error: ${data.error || data.message || 'Error desconocido'}`);
+        setMessage("⚠️ Error: " + (data.error || "Servidor"));
       }
     } catch (error) {
-      setMessage("⚠️ Error en el registro");
+      console.error("Error:", error);
+      setMessage("⚠️ Error conectando con el servidor.");
     } finally {
       setIsLoading(false);
     }
@@ -120,204 +159,102 @@ function Register() {
     <div className="container">
       <div id="registerForm" className="form-container">
         <div className="form-header">
-          <h1>Crear Cuenta</h1>
-          <p>Regístrate para comenzar</p>
+          <h1>Regístrate</h1>
         </div>
 
-        {message && (
-          <div 
-            id="registerMessage" 
-            className={`message ${message.includes('✅') ? 'success' : 'error'}`}
-          >
-            {message}
-          </div>
-        )}
+        {message && <div id="registerMessage" role="status">{message}</div>}
 
         <form id="registerFormElement" onSubmit={handleSubmit}>
-          {/* Nombre */}
-          <div className="form-group">
-            <label htmlFor="firstName">Nombre *</label>
-            <input
-              type="text"
-              id="firstName"
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleChange}
-              required
-              minLength="2"
-              maxLength="50"
-              pattern="[A-Za-zÀ-ÿ\s]+"
-              title="Solo se permiten letras y espacios"
-            />
+          <div className="form-row">
+            <FormInput label="Nombre" name="firstName" value={formData.firstName} onChange={handleChange} required autoComplete="given-name" />
+            <FormInput label="Apellido" name="lastName" value={formData.lastName} onChange={handleChange} required autoComplete="family-name" />
           </div>
 
-          {/* Apellido */}
-          <div className="form-group">
-            <label htmlFor="lastName">Apellido *</label>
-            <input
-              type="text"
-              id="lastName"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleChange}
-              required
-              minLength="2"
-              maxLength="50"
-              pattern="[A-Za-zÀ-ÿ\s]+"
-              title="Solo se permiten letras y espacios"
-            />
+          <div className="form-row">
+            <FormInput label="Correo electrónico" name="registerEmail" type="email" value={formData.registerEmail} onChange={handleChange} required autoComplete="email" placeholder="ejemplo@correo.com" error={errors.registerEmail} />
+            <FormInput label="Confirmar correo electrónico" name="confirmEmail" type="email" value={formData.confirmEmail} onChange={handleChange} required autoComplete="email" placeholder="confirma tu correo" error={errors.confirmEmail} />
           </div>
 
-          {/* Correo */}
-          <div className="form-group">
-            <label htmlFor="registerEmail">Correo electrónico *</label>
-            <input
-              type="email"
-              id="registerEmail"
-              name="registerEmail"
-              value={formData.registerEmail}
-              onChange={handleChange}
-              required
-              placeholder="ejemplo@correo.com"
-              autoComplete="email"
-            />
+          <div className="form-row">
+            <FormSelect label="Tipo de documento" name="documentType" value={formData.documentType} onChange={handleChange} options={DOCUMENT_TYPES} required />
+            <FormInput label="Número de documento" name="documentNumber" value={formData.documentNumber} onChange={handleChange} required error={errors.documentNumber} />
           </div>
 
-          {/* Tipo de documento */}
-          <div className="form-group">
-            <label>Tipo de documento *</label>
-            <div className="radio-group">
-              {[
-                { value: "cc", label: "Cédula de ciudadanía" },
-                { value: "ti", label: "Tarjeta de identidad" },
-                { value: "ce", label: "Cédula de extranjería" },
-                { value: "pp", label: "Pasaporte" }
-              ].map((doc) => (
-                <div className="radio-option" key={doc.value}>
-                  <input
-                    type="radio"
-                    id={doc.value}
-                    name="documentType"
-                    value={doc.value}
-                    checked={formData.documentType === doc.value}
-                    onChange={handleChange}
-                    required
-                  />
-                  <label htmlFor={doc.value}>{doc.label}</label>
+          <div className="form-row">
+            <FormInput label="Teléfono" name="phone" type="tel" value={formData.phone} onChange={handleChange} required placeholder="Ej: 3001234567" autoComplete="tel" />
+            <FormInput label="Dirección" name="address" value={formData.address} onChange={handleChange} required placeholder="Ej: Calle 123 # 45-67" autoComplete="street-address" />
+          </div>
+
+          <div className="form-row">
+            <FormSelect label="Caracterización de población" name="populationType" value={formData.populationType} onChange={handleChange} options={[
+              { value: "indigena", label: "Indígena" },
+              { value: "Afrodescendiente", label: "Afrodescendiente" },
+              { value: "Discapacitado", label: "Discapacitado" },
+              { value: "Desplazado", label: "Desplazado" },
+              { value: "discapacidad", label: "Persona con discapacidad" },
+              { value: "Ninguna", label: "Ninguna" },
+            ]} required />
+            <FormSelect label="Elija localidad" name="localidad" value={formData.localidad} onChange={handleChange} options={LOCALIDADES} required />
+          </div>
+
+          {/* Contraseña con botón DENTRO del input */}
+          <div className="form-row">
+            <div className="form-column">
+              <label htmlFor="registerPassword" className="required">Contraseña</label>
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="registerPassword"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  minLength="8"
+                  autoComplete="new-password"
+                  aria-required="true"
+                  aria-invalid={errors.password ? "true" : "false"}
+                  aria-describedby="password-hint password-strength"
+                />
+                <button 
+                  type="button" 
+                  className="toggle-password" 
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} 
+                  onClick={() => setShowPassword((s) => !s)}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+              <small id="password-hint" className="password-hint">
+                Mínimo 8 caracteres, incluir mayúscula, número y símbolo.
+              </small>
+
+              {passwordStrength.level && (
+                <div id="password-strength" className="strength-meter" aria-live="polite">
+                  <div className="strength-bar" style={{ backgroundColor: passwordStrength.color }} />
+                  <span className="strength-text">{passwordStrength.level}</span>
                 </div>
-              ))}
+              )}
+              {errors.password && <span className="error">{errors.password}</span>}
             </div>
           </div>
 
-          {/* Número de documento */}
-          <div className="form-group">
-            <label htmlFor="documentNumber">Número de documento *</label>
-            <input
-              type="text"
-              id="documentNumber"
-              name="documentNumber"
-              value={formData.documentNumber}
-              onChange={handleChange}
-              required
-              pattern="[0-9]+"
-              minLength="6"
-              maxLength="15"
-              title="Solo se permiten números, mínimo 6 dígitos"
-            />
-          </div>
-
-          {/* Caracterización de población */}
-          <div className="form-group">
-            <label htmlFor="populationType">Caracterización de población *</label>
-            <select
-              id="populationType"
-              name="populationType"
-              value={formData.populationType}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Seleccione...</option>
-              <option value="indigena">Indígena</option>
-              <option value="afrodescendiente">Afrodescendiente</option>
-              <option value="discapacidad">Persona con discapacidad</option>
-              <option value="desplazado">Desplazado</option>
-              <option value="ninguna">Ninguna</option>
-            </select>
-          </div>
-
-          {/* Localidad */}
-          <div className="form-group">
-            <label htmlFor="localidad">Localidad *</label>
-            <select
-              id="localidad"
-              name="localidad"
-              value={formData.localidad}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Seleccione...</option>
-              <option value="usaquen">Usaquén</option>
-              <option value="chapinero">Chapinero</option>
-              <option value="santa_fe">Santa Fe</option>
-              <option value="san_cristobal">San Cristóbal</option>
-              <option value="usme">Usme</option>
-              <option value="tunjuelito">Tunjuelito</option>
-              <option value="bosa">Bosa</option>
-              <option value="kennedy">Kennedy</option>
-              <option value="fontibon">Fontibón</option>
-              <option value="engativa">Engativá</option>
-              <option value="suba">Suba</option>
-              <option value="barrios_unidos">Barrios Unidos</option>
-              <option value="teusaquillo">Teusaquillo</option>
-              <option value="los_martires">Los Mártires</option>
-              <option value="antonio_narino">Antonio Nariño</option>
-              <option value="puente_aranda">Puente Aranda</option>
-              <option value="candelaria">La Candelaria</option>
-              <option value="rafael_uribe">Rafael Uribe Uribe</option>
-              <option value="ciudad_bolivar">Ciudad Bolívar</option>
-            </select>
-          </div>
-
-          {/* Contraseña */}
-          <div className="form-group">
-            <label htmlFor="registerPassword">Contraseña *</label>
-            <input
-              type="password"
-              id="registerPassword"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              minLength="8"
-              autoComplete="new-password"
-            />
-            <small className="password-hint">
-              Mínimo 8 caracteres, incluir una letra, número y símbolo.
-            </small>
-          </div>
-
-          {/* Confirmar Contraseña */}
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirmar contraseña *</label>
-            <input
-              type="password"
-              id="confirmPassword"
+          {/* Confirmar contraseña SIN botón de mostrar/ocultar */}
+          <div className="form-row">
+            <FormInput
+              label="Confirmar contraseña"
               name="confirmPassword"
+              type={showPassword ? "text" : "password"}
               value={formData.confirmPassword}
               onChange={handleChange}
               required
               autoComplete="new-password"
+              error={errors.confirmPassword}
             />
           </div>
 
           {/* Botón */}
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            id="registerBtn"
-            disabled={isLoading}
-          >
-            {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
+          <button type="submit" className="btn btn-primary" id="registerBtn" disabled={isLoading}>
+            {isLoading ? "Registrando..." : "Crear Cuenta"}
           </button>
         </form>
 

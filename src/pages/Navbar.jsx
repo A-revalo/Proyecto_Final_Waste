@@ -23,7 +23,7 @@ export default function Navbar() {
         <li><Link to="/the-app">La App</Link></li>
         <li><Link to="/testimonials">Testimonios</Link></li>
         <li><Link to="/contact">Contacto</Link></li>
-        <li><Link to="/login" className="auth-link">Iniciar sesión</Link></li>
+        <li><Link to="/iniciarsesion" className="auth-link">Iniciar sesión</Link></li>
         <li>
           <Link to="/register" className="auth-link">Register</Link>
         </li>
